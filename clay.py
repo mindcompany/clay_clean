@@ -1,3 +1,4 @@
+# INSERT API AT LINE 197
 # python -m venv env
 # source env/bin/activate  
 # pip install -r requirements.txt
@@ -173,7 +174,7 @@ def process_csv(input_file, api_key):
 
 def main():
     # Abstract API key
-    API_KEY = "1b1f77775ee2438c85b47ac546ec1614"
+    API_KEY = "INSERT API KEY HERE"
     
     print("\n" + "="*50)
     print("CSV FILE INPUT INSTRUCTIONS")
