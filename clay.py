@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 import re
 import time
+from dotenv import load_dotenv
 
 def validate_email(email, api_key):
     """
@@ -76,7 +77,7 @@ def clean_first_name(name):
     
     # Check for any type of quotation pattern (e.g., Wen Jing 'David' or "David" or "David")
     # This will match any text between any type of quotes
-    quote_match = re.search(r'[\'"]([^\'"]+)[\'"]|"([^"]+)"|'([^']+)'', name)
+    quote_match = re.search(r'[\'"]([^\'"]+)[\'"]|"([^"]+)"|\'([^\']+)\'', name)
     if quote_match:
         # Use the first non-None group (the quoted name)
         quoted_name = next((g for g in quote_match.groups() if g is not None), None)
@@ -173,8 +174,16 @@ def process_csv(input_file, api_key):
     return output_file, report_file
 
 def main():
-    # Abstract API key
-    API_KEY = "INSERT API KEY HERE"
+    # Load environment variables
+    load_dotenv()
+    
+    # Get API key from environment variable
+    API_KEY = os.getenv('ABSTRACT_API_KEY')
+    if not API_KEY:
+        print("❌ Error: ABSTRACT_API_KEY not found in .env file")
+        print("Please create a .env file with your API key like this:")
+        print("ABSTRACT_API_KEY=your_api_key_here")
+        return
     
     print("\n" + "="*50)
     print("CSV FILE INPUT INSTRUCTIONS")
