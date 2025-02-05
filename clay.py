@@ -90,6 +90,28 @@ def clean_first_name(name):
     # Capitalize first letter, lowercase rest
     return first_part.capitalize(), True
 
+def normalize_company_name(name):
+    """
+    Normalizes company name by:
+    1. Removing dots
+    2. Standardizing capitalization
+    3. Removing extra spaces
+    """
+    if pd.isna(name):
+        return name
+    
+    # Convert to string and strip whitespace
+    name = str(name).strip()
+    
+    # Remove dots that aren't part of abbreviations
+    name = name.replace('.', '')
+    
+    # Split into words and capitalize each word
+    words = name.split()
+    normalized = ' '.join(word.capitalize() for word in words)
+    
+    return normalized
+
 def process_csv(input_file, api_key, customer_profile, validate_emails=True):
     """
     Main function to process the CSV file
@@ -101,6 +123,12 @@ def process_csv(input_file, api_key, customer_profile, validate_emails=True):
     
     # Add Customer Profile column
     df['Customer Profile'] = customer_profile
+    
+    # Clean up company names if the column exists
+    if 'Company Name' in df.columns:
+        print("\n🏢 Normalizing company names...")
+        df['Company Name'] = df['Company Name'].apply(normalize_company_name)
+        print("✓ Company names normalized")
     
     # Create report file name
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
