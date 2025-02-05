@@ -90,7 +90,7 @@ def clean_first_name(name):
     # Capitalize first letter, lowercase rest
     return first_part.capitalize(), True
 
-def process_csv(input_file, api_key):
+def process_csv(input_file, api_key, customer_profile, validate_emails=True):
     """
     Main function to process the CSV file
     """
@@ -98,6 +98,9 @@ def process_csv(input_file, api_key):
     print(f"\n📂 Reading file: {input_file}")
     df = pd.read_csv(input_file)
     print(f"📊 Found {len(df)} rows in the CSV")
+    
+    # Add Customer Profile column
+    df['Customer Profile'] = customer_profile
     
     # Create report file name
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -122,26 +125,31 @@ def process_csv(input_file, api_key):
     df['First Name'] = df.apply(clean_and_track, axis=1)
     print("✓ First names cleaned")
     
-    # Validate emails
-    print("\n🔄 Starting email validation process...")
-    print(f"⏳ This might take a while due to API rate limits (1 request per second)")
-    total_emails = len(df)
-    validated_count = 0
-    
-    def validate_with_progress(email):
-        nonlocal validated_count
-        validated_count += 1
-        result = validate_email(email, api_key)
-        print(f"Progress: {validated_count}/{total_emails} emails processed ({(validated_count/total_emails*100):.1f}%)")
-        return result
-    
-    df['is_valid_email'] = df['Email'].apply(validate_with_progress)
-    
-    # Remove invalid emails
-    valid_count = df['is_valid_email'].sum()
-    print(f"\n✨ Email validation complete!")
-    print(f"📊 Found {valid_count} valid emails out of {total_emails}")
-    df = df[df['is_valid_email']].drop('is_valid_email', axis=1)
+    if validate_emails:
+        # Validate emails
+        print("\n🔄 Starting email validation process...")
+        print(f"⏳ This might take a while due to API rate limits (1 request per second)")
+        total_emails = len(df)
+        validated_count = 0
+        
+        def validate_with_progress(email):
+            nonlocal validated_count
+            validated_count += 1
+            # Skip validation for empty or NaN emails
+            if pd.isna(email) or str(email).strip() == '':
+                print(f"Progress: {validated_count}/{total_emails} emails processed ({(validated_count/total_emails*100):.1f}%) - Skipped empty email")
+                return False
+            result = validate_email(email, api_key)
+            print(f"Progress: {validated_count}/{total_emails} emails processed ({(validated_count/total_emails*100):.1f}%)")
+            return result
+        
+        df['is_valid_email'] = df['Email'].apply(validate_with_progress)
+        
+        # Remove invalid emails
+        valid_count = df['is_valid_email'].sum()
+        print(f"\n✨ Email validation complete!")
+        print(f"📊 Found {valid_count} valid emails out of {total_emails}")
+        df = df[df['is_valid_email']].drop('is_valid_email', axis=1)
     
     # Generate output filename with timestamp
     output_file = f"{base_filename}_cleaned_{timestamp}.csv"
@@ -158,8 +166,9 @@ def process_csv(input_file, api_key):
         f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
         f.write("Summary:\n")
-        f.write(f"- Total rows processed: {total_emails}\n")
-        f.write(f"- Valid emails: {valid_count}\n")
+        f.write(f"- Total rows processed: {len(df)}\n")
+        if validate_emails:
+            f.write(f"- Valid emails: {valid_count}\n")
         f.write(f"- Invalid names found: {len(invalid_names)}\n\n")
         
         if invalid_names:
@@ -203,7 +212,7 @@ def main():
         except ValueError:
             print("❌ Please enter a valid number")
     
-    # Collect all filenames
+    # Collect all filenames and their customer profiles
     files_to_process = []
     downloads_folder = os.path.expanduser("~/Downloads")
     
@@ -216,8 +225,24 @@ def main():
             input_file = os.path.join(downloads_folder, csv_name)
             
             if os.path.exists(input_file):
-                files_to_process.append(input_file)
+                # Get customer profile for this file
+                customer_profile = input(f"Enter Customer Profile for {csv_name}: ").strip()
+                
+                # Ask if email validation is needed
+                while True:
+                    validate_emails = input("Do you want to validate emails for this file? (y/n): ").lower()
+                    if validate_emails in ['y', 'n']:
+                        break
+                    print("❌ Please enter 'y' for yes or 'n' for no")
+                
+                files_to_process.append({
+                    'file_path': input_file,
+                    'customer_profile': customer_profile,
+                    'validate_emails': validate_emails == 'y'
+                })
                 print(f"✅ File #{i+1} added to queue: {csv_name}")
+                print(f"👤 Customer Profile: {customer_profile}")
+                print(f"📧 Email Validation: {'Yes' if validate_emails == 'y' else 'No'}")
                 break
             else:
                 print(f"❌ Error: File not found: {csv_name}")
@@ -226,13 +251,20 @@ def main():
                 print("- The file is in your Downloads folder")
     
     print(f"\n📋 Processing queue of {len(files_to_process)} files:")
-    for i, file_path in enumerate(files_to_process, 1):
+    for i, file_info in enumerate(files_to_process, 1):
         print(f"\n{'='*50}")
-        print(f"🔄 Processing file {i}/{len(files_to_process)}: {os.path.basename(file_path)}")
+        print(f"🔄 Processing file {i}/{len(files_to_process)}: {os.path.basename(file_info['file_path'])}")
+        print(f"👤 Customer Profile: {file_info['customer_profile']}")
+        print(f"📧 Email Validation: {'Yes' if file_info['validate_emails'] else 'No'}")
         print(f"{'='*50}")
         
         try:
-            output_file, report_file = process_csv(file_path, API_KEY)
+            output_file, report_file = process_csv(
+                file_info['file_path'], 
+                API_KEY,
+                file_info['customer_profile'],
+                file_info['validate_emails']
+            )
             print(f"\n✅ File {i} completed successfully!")
             print(f"📁 Output file: {output_file}")
             print(f"📝 Report file: {report_file}")
