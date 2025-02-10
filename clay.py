@@ -1,4 +1,3 @@
-# INSERT API AT LINE 197
 # python -m venv env
 # source env/bin/activate  
 # pip install -r requirements.txt
@@ -86,6 +85,10 @@ def clean_first_name(name):
     
     # Split on spaces and take first part
     first_part = name.split()[0]
+    
+    # Remove trailing periods and commas while preserving internal ones
+    while first_part and first_part[-1] in ['.', ',']:
+        first_part = first_part[:-1]
     
     # Capitalize first letter, lowercase rest
     return first_part.capitalize(), True
